@@ -55,12 +55,17 @@ class Optimizer:
             self.search_space = XGBOOST_SEARCH_SPACE
             if self.problem_type == 'regression':
                 self.search_space['objective'] = 'reg:squarederror'
+                self.metric = 'rmse'
             elif self.problem_type == 'multiclass':
                 self.search_space['objective'] = 'multi:softmax'
                 self.search_space['num_class'] = len(self.target.unique())
+                self.metric = 'mlogloss'
             else:
                 self.search_space['objective'] = 'binary:logistic'
+                # use the rocauc metric for binary classification
+                self.metric = 'auc'
                 self.search_space['eval_metric'] = 'logloss'
+                self.metric='logloss'
         elif self.model == 'randomforest':
             self.search_space = RF_SEARCH_SPACE
             if self.problem_type == 'regression':
@@ -74,8 +79,9 @@ class Optimizer:
             # convert data and target to DMatrix
             data = xgb.DMatrix(self.features, self.target)
             # perform a cross validation with the given parameters and return the  mean evaluation metric 
-            cv_results = xgb.cv(params, data, num_boost_round=1000, nfold=self.splits)
-            return {'status':STATUS_OK, 'loss':cv_results['test-rmse-mean'].iloc[-1], 'attributes':params}
+            cv_results = xgb.cv(params, data, num_boost_round=100, nfold=self.splits)
+            print(cv_results)
+            return {'status':STATUS_OK, 'loss':cv_results[f'test-{self.metric}-mean'].iloc[-1], 'attributes':params}
         elif self.model == 'randomforest':
             # perform a cross validation with the given parameters and return the  mean evaluation metric 
             cv_results = cross_val_score(RandomForestRegressor(**params), self.features, self.target, cv=self.splits)
