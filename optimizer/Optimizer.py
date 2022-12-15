@@ -29,6 +29,22 @@ RF_SEARCH_SPACE = {
 }
 
 class Optimizer:
+    """
+    This class is used to optimize the hyperparameters of a model using hyperopt
+
+    Parameters
+    ----------
+    model_type: str ( 'xgboost' or 'randomforest') 
+        The model type to optimize
+    data: pd.DataFrame
+        The data to use for optimization
+    target: str
+        The target column name
+    max_evals: int
+        The maximum number of evaluations to perform by hyperopt
+    cv_splits: int
+        The number of cross validation splits to perform
+    """
     def __init__(self, model_type:str,data:pd.DataFrame, target:str, max_evals:int=100, cv_splits:int=5):
         self.model = model_type
         self.max_evals = max_evals
@@ -40,7 +56,9 @@ class Optimizer:
         self.target=data[target]
 
     def define_problem_type(self):
-        # Define the problem type based on the unique values of the target
+        """
+        This function is used to define the problem type based on the unique values of the target
+        """
         if len(self.target.unique()) > 10:
             self.problem_type = 'regression'
         elif len(self.target.unique()) > 2:
@@ -50,6 +68,9 @@ class Optimizer:
         
 
     def complete_search_space(self):
+        """
+        This function is used to complete the search space based on the model type and problem type
+        """
         # add the objective function to the search space based on the model type and problem type
         if self.model == 'xgboost':
             self.search_space = XGBOOST_SEARCH_SPACE
@@ -75,6 +96,9 @@ class Optimizer:
                 
 
     def function_to_optimize(self, params):
+        """
+        This function is used to optimize the search space based on the model type and problem type
+        """
         if self.model == 'xgboost':
             # convert data and target to DMatrix
             data = xgb.DMatrix(self.features, self.target)
@@ -90,6 +114,9 @@ class Optimizer:
             
             
     def optimize(self):
+        """
+         Perform the optimization of the search space using hyperopt fmin function
+        """
         # determine the problem type
         self.define_problem_type()
         # complete the search space
@@ -97,10 +124,15 @@ class Optimizer:
         # optimize the search space
         self.best = fmin(self.function_to_optimize, self.search_space, algo=tpe.suggest,
                          max_evals=self.max_evals, trials=self.trials)
+        
+        # return the best parameters
         return self.best
 
 
 if __name__ == '__main__':
+    """
+    This is the main function of the script used for debugging
+    """
     # load the data
     data = pd.read_csv('data/adult.csv')
     data.drop(['fnlwgt','education','occupation','relationship','native-country'], axis=1, inplace=True)
