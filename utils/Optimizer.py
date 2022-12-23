@@ -1,7 +1,7 @@
 from hyperopt import hp,Trials,STATUS_OK,fmin,tpe
 from hyperopt.pyll import scope
 
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score,roc_auc_score,mean_squared_error,mean_absolute_error,classification_report
@@ -26,8 +26,7 @@ RF_SEARCH_SPACE = {
             'max_depth': scope.int(hp.uniform('max_depth', 3, 10)),
             'min_samples_split': scope.int(hp.uniform('min_samples_split', 2, 10)),
             'min_samples_leaf': scope.int(hp.uniform('min_samples_leaf', 1, 10)),
-            'max_features': hp.choice('max_features', ['auto', 'sqrt', 'log2']),
-            'bootstrap': hp.choice('bootstrap', [True, False]),
+            'n_jobs': -1,
 }
 
 class Optimizer:
@@ -64,10 +63,8 @@ class Optimizer:
         """
         This function is used to define the problem type based on the unique values of the target
         """
-        if len(self.train_target.unique()) > 10:
+        if len(self.train_target.unique()) > 2:
             self.problem_type = 'regression'
-        elif len(self.train_target.unique()) > 2:
-            self.problem_type = 'multiclass'
         else:
             self.problem_type = 'binary'
 
@@ -90,20 +87,13 @@ class Optimizer:
             if self.problem_type == 'regression':
                 self.search_space['objective'] = 'reg:squarederror'
                 self.metric = 'rmse'
-            elif self.problem_type == 'multiclass':
-                self.search_space['objective'] = 'multi:softmax'
-                self.search_space['num_class'] = len(self.train_target.unique())
-                self.metric = 'mlogloss'
             else:
                 self.search_space['objective'] = 'binary:logistic' 
                 self.search_space['eval_metric'] = 'logloss'
                 self.metric='logloss'
-        elif self.model == 'randomforest':
+        else:
             self.search_space = RF_SEARCH_SPACE
-            if self.problem_type == 'regression':
-                self.search_space['criterion'] = 'mse'
-            else:
-                self.search_space['criterion'] = 'gini'
+
                 
 
     def function_to_optimize(self, params):
@@ -119,7 +109,14 @@ class Optimizer:
             return {'status':STATUS_OK, 'loss':cv_results[f'test-{self.metric}-mean'].iloc[-1], 'attributes':params}
         elif self.model == 'randomforest':
             # perform a cross validation with the given parameters and return the  mean evaluation metric 
-            cv_results = cross_val_score(RandomForestRegressor(**params), self.features, self.target, cv=self.splits)
+            if self.problem_type == 'regression':
+                cv_results = cross_val_score(RandomForestRegressor(**params), self.train_features, self.train_target, cv=self.splits,error_score='raise')
+            else:
+                cv_results = cross_val_score(RandomForestClassifier(**params), self.train_features, self.train_target, cv=self.splits,error_score='raise',scoring="neg_log_loss")
+                # We want to minimize the log loss, so we multiply by -1
+                cv_results = -cv_results
+                print(cv_results)
+                
             return {'status':STATUS_OK, 'loss':np.mean(cv_results), 'attributes':params}
 
             
@@ -153,8 +150,21 @@ class Optimizer:
             # Train the model            
             self.best_model = xgb.train(self.best_parameters, xgb.DMatrix(self.train_features, self.train_target),num_boost_round=100)
         elif self.model == 'randomforest':
-            self.best_model = RandomForestRegressor(**self.best_parameters)
-            self.best_model.fit(self.train_features, self.train_target)
+            # Convert int parameters to integers
+            self.best_parameters['n_estimators'] = int(self.best_parameters['n_estimators'])
+            self.best_parameters['max_depth'] = int(self.best_parameters['max_depth'])
+            self.best_parameters['min_samples_split'] = int(self.best_parameters['min_samples_split'])
+            self.best_parameters['min_samples_leaf'] = int(self.best_parameters['min_samples_leaf'])
+            
+            # Set regressor or classifier
+            if self.problem_type == 'binary':
+                self.best_model = RandomForestClassifier(**self.best_parameters)
+            else:
+                self.best_model = RandomForestRegressor(**self.best_parameters)
+            
+            # Train the model
+            self.best_model.fit(self.train_features, self.train_target)            
+        
         # return the best model
         return self.best_model
 
@@ -209,15 +219,16 @@ if __name__ == '__main__':
 
     print(data.income.value_counts())
     # instanciate the class
-    opt = Optimizer(model_type='xgboost',
+    opt = Optimizer(model_type='randomforest',
                     data=data,
                     target= 'income',
                     seed=42,
-                    max_evals=30,
+                    max_evals=50,
                     cv_splits=3
                     )
     # optimize the search space
     best_params = opt.optimize()
+    print(opt.best_parameters)
     # train the best model
     best_model = opt.train_best_model()
     # make predictions from the best model in the test set
