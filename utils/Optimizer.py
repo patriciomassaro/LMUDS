@@ -182,7 +182,7 @@ class Optimizer:
                 self.test_label_predictions = self.best_model.predict(self.test_features)
         # predict labels in case the problem is regression
         elif self.problem_type == 'regression':
-            self.test_label_predictions = self.best_model.predict(self.test_features)
+            self.test_label_predictions = self.best_model.predict(xgb.DMatrix(self.test_features))
 
     def report_metrics(self):
         """
@@ -194,7 +194,7 @@ class Optimizer:
             print(classification_report(self.test_target, self.test_label_predictions))
             print(roc_auc_score(self.test_target, self.test_proba_predictions))
         elif self.problem_type == 'regression':
-            print(mean_squared_error(self.test_target, self.test_label_predictions))
+            print(np.sqrt(mean_squared_error(self.test_target, self.test_label_predictions)))
 
 
         
@@ -212,18 +212,15 @@ if __name__ == '__main__':
     print(data.columns)
     print(data.dtypes)
     # transform target to binary
-    print(data.income.value_counts())
-    data['income'] = data['income'].apply(lambda x: 0 if x == ' <=50K' else 1)
+    #data['income'] = data['income'].apply(lambda x: 0 if x == ' <=50K' else 1)
     # apply one hot encoding
     data = pd.get_dummies(data,drop_first=True)
-
-    print(data.income.value_counts())
     # instanciate the class
-    opt = Optimizer(model_type='randomforest',
+    opt = Optimizer(model_type='xgboost',
                     data=data,
-                    target= 'income',
+                    target= 'age',
                     seed=42,
-                    max_evals=50,
+                    max_evals=30,
                     cv_splits=3
                     )
     # optimize the search space
