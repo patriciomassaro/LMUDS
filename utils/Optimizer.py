@@ -10,6 +10,8 @@ import xgboost as xgb
 import pandas as pd
 import numpy as np
 
+import logging
+logger = logging.getLogger(__name__)
 XGBOOST_SEARCH_SPACE = {
             'learning_rate': hp.loguniform('learning_rate', -4, -1),
             'max_depth': scope.int(hp.uniform('max_depth', 3, 10)),
@@ -64,11 +66,14 @@ class Optimizer:
         This function is used to define the problem type based on the unique values of the target
         """
         if len(self.train_target.unique()) > 2:
+            logger.info("More than 2 unique values in the target, so it is a regression classification problem")
             self.problem_type = 'regression'
         else:
+            logger.info("2 unique values in the target, so it is a binary classification problem")
             self.problem_type = 'binary'
 
     def split_into_train_and_test(self):
+        logger.info("Splitting the data into train and test")
         train,test = train_test_split(self.data,test_size=0.2,random_state=self.seed)
         self.train_features = (train.drop(self.target,axis=1))
         self.train_target = train[self.target]
@@ -83,6 +88,7 @@ class Optimizer:
         """
         # add the objective function to the search space based on the model type and problem type
         if self.model == 'xgboost':
+            logger.info("Using XGBoost as the model")
             self.search_space = XGBOOST_SEARCH_SPACE
             if self.problem_type == 'regression':
                 self.search_space['objective'] = 'reg:squarederror'
@@ -105,7 +111,7 @@ class Optimizer:
             data = xgb.DMatrix(self.train_features, self.train_target)
             # perform a cross validation with the given parameters and return the  mean evaluation metric 
             cv_results = xgb.cv(params, data, nfold=self.splits,num_boost_round=100)
-            print(cv_results)
+            logger.info(f"CV results: {cv_results[f'test-{self.metric}-mean'].iloc[-1]}")
             return {'status':STATUS_OK, 'loss':cv_results[f'test-{self.metric}-mean'].iloc[-1], 'attributes':params}
         elif self.model == 'randomforest':
             # perform a cross validation with the given parameters and return the  mean evaluation metric 
@@ -113,12 +119,12 @@ class Optimizer:
                 cv_results = cross_val_score(RandomForestRegressor(**params), self.train_features, self.train_target, cv=self.splits,error_score='raise',scoring="neg_mean_squared_error")
                 # We want to minimize the negative mean squared error, so we multiply by -1
                 cv_results = -cv_results
-                print(cv_results)
+                logger.info(f"CV results: {cv_results}")
             else:
                 cv_results = cross_val_score(RandomForestClassifier(**params), self.train_features, self.train_target, cv=self.splits,error_score='raise',scoring="neg_log_loss")
                 # We want to minimize the neg log loss, so we multiply by -1
                 cv_results = -cv_results
-                print(cv_results)
+                logger.info(f"CV results: {cv_results}")
                 
             return {'status':STATUS_OK, 'loss':np.mean(cv_results), 'attributes':params}
 
@@ -146,6 +152,7 @@ class Optimizer:
         """
         This function is used to train the best model found during the optimization
         """
+        logger.info("Training the best model found during the optimization")
         # train the model with the best parameters found during the optimization
         if self.model == 'xgboost':
             # convert parameters to integers
@@ -175,6 +182,7 @@ class Optimizer:
         """
         This function is used to check the performance of the best model found during the optimization on the test set
         """
+        logger.info("Making predictions from the best model found during the optimization")
         # predict labels and probabilities in case the problem is binary
         if self.problem_type == 'binary':
             if self.model == 'xgboost':
@@ -195,13 +203,13 @@ class Optimizer:
         """
         This function is used to report the performance of the best model found during the optimization on the test set
         """
-        
+        logger.info("Reporting the performance of the best model found during the optimization on the test set")
         # report the performance of the best model found during the optimization on the test set
         if self.problem_type == 'binary':
-            print(classification_report(self.test_target, self.test_label_predictions))
-            print(roc_auc_score(self.test_target, self.test_proba_predictions))
+            logger.info(f"classification report: {classification_report(self.test_target, self.test_label_predictions)}")
+            logger.info(f"ROCAUC: {roc_auc_score(self.test_target, self.test_proba_predictions)}")
         elif self.problem_type == 'regression':
-            print(np.sqrt(mean_squared_error(self.test_target, self.test_reg_predictions)))
+            logger.info(f"RMSE: {np.sqrt(mean_squared_error(self.test_target, self.test_reg_predictions))}")
 
 
         
@@ -209,56 +217,6 @@ class Optimizer:
         
 
 
-if __name__ == '__main__':
-    """
-    This is the main function of the script used for debugging
-    """
-    # load the data
-    data = pd.read_csv('data/adult.csv')
-    data.drop(['fnlwgt','education','occupation','relationship','native-country'], axis=1, inplace=True)
-    print(data.columns)
-    print(data.dtypes)
-    # transform target to binary
-    #data['income'] = data['income'].apply(lambda x: 0 if x == ' <=50K' else 1)
-    # apply one hot encoding
-    data = pd.get_dummies(data,drop_first=True)
-    # instanciate the class
-    opt = Optimizer(model_type='randomforest',
-                    data=data,
-                    target= 'age',
-                    seed=42,
-                    max_evals=3,
-                    cv_splits=3
-                    )
-    # optimize the search space
-    best_params = opt.optimize()
-    print(opt.best_parameters)
-    # train the best model
-    best_model = opt.train_best_model()
-    # make predictions from the best model in the test set
-    opt.make_predictions_from_best_model()
-    # report the performance of the best model in the test set
-    opt.report_metrics()
 
 
 
-
-# Main loop
-# Datasets [ A10k, A100k, A1M]
-# K [1,10,50,100]
-# Anonimization algorithm [k-anonymity, l-diversity, t-closeness]
-# Targets = [A10k, A100k, A1M]
-# For anonimization algorithm
-    # for datasaet in datasets 
-        # Preprocess dataset
-        # Split
-        # for k in K
-            # apply anonimization ( parameter k )
-            # Optimize with train dataset
-            # Save metrics for training dataset
-            # Save metrics for testing dataset
-            # Repeat 
-        #Repeat
-
-
-# plot
