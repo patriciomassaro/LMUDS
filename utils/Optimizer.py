@@ -110,10 +110,13 @@ class Optimizer:
         elif self.model == 'randomforest':
             # perform a cross validation with the given parameters and return the  mean evaluation metric 
             if self.problem_type == 'regression':
-                cv_results = cross_val_score(RandomForestRegressor(**params), self.train_features, self.train_target, cv=self.splits,error_score='raise')
+                cv_results = cross_val_score(RandomForestRegressor(**params), self.train_features, self.train_target, cv=self.splits,error_score='raise',scoring="neg_mean_squared_error")
+                # We want to minimize the negative mean squared error, so we multiply by -1
+                cv_results = -cv_results
+                print(cv_results)
             else:
                 cv_results = cross_val_score(RandomForestClassifier(**params), self.train_features, self.train_target, cv=self.splits,error_score='raise',scoring="neg_log_loss")
-                # We want to minimize the log loss, so we multiply by -1
+                # We want to minimize the neg log loss, so we multiply by -1
                 cv_results = -cv_results
                 print(cv_results)
                 
@@ -182,7 +185,11 @@ class Optimizer:
                 self.test_label_predictions = self.best_model.predict(self.test_features)
         # predict labels in case the problem is regression
         elif self.problem_type == 'regression':
-            self.test_label_predictions = self.best_model.predict(xgb.DMatrix(self.test_features))
+            if self.model == 'xgboost':
+                self.test_reg_predictions = self.best_model.predict(xgb.DMatrix(self.test_features))
+            elif self.model == 'randomforest':
+                self.test_reg_predictions = self.best_model.predict(self.test_features)
+
 
     def report_metrics(self):
         """
@@ -194,7 +201,7 @@ class Optimizer:
             print(classification_report(self.test_target, self.test_label_predictions))
             print(roc_auc_score(self.test_target, self.test_proba_predictions))
         elif self.problem_type == 'regression':
-            print(np.sqrt(mean_squared_error(self.test_target, self.test_label_predictions)))
+            print(np.sqrt(mean_squared_error(self.test_target, self.test_reg_predictions)))
 
 
         
@@ -216,11 +223,11 @@ if __name__ == '__main__':
     # apply one hot encoding
     data = pd.get_dummies(data,drop_first=True)
     # instanciate the class
-    opt = Optimizer(model_type='xgboost',
+    opt = Optimizer(model_type='randomforest',
                     data=data,
                     target= 'age',
                     seed=42,
-                    max_evals=30,
+                    max_evals=3,
                     cv_splits=3
                     )
     # optimize the search space
