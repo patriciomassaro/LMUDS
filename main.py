@@ -1,4 +1,5 @@
 from utils.Optimizer import Optimizer
+from utils.Preprocessing import preprocess_data
 
 import logging
 import pandas as pd
@@ -6,36 +7,47 @@ import pandas as pd
 
 if __name__ == '__main__':
     """
-    This is the main function of the script used for debugging
+    This is the main function of the script 
     """
     # Instanciate a logging with debug level
     logging.basicConfig(filename='app.log', filemode='w', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',level=logging.DEBUG)
-    # load the data
-    data = pd.read_csv('data/adult.csv')
-    data.drop(['fnlwgt','education','occupation','relationship','native-country'], axis=1, inplace=True)
-    logging.info(data.columns)
-    logging.info(data.dtypes)
-    # transform target to binary
-    #data['income'] = data['income'].apply(lambda x: 0 if x == ' <=50K' else 1)
-    # apply one hot encoding
-    data = pd.get_dummies(data,drop_first=True)
-    # instanciate the class
-    opt = Optimizer(model_type='randomforest',
-                    data=data,
-                    target= 'age',
-                    seed=42,
-                    max_evals=3,
-                    cv_splits=3
-                    )
-    # optimize the search space
-    best_params = opt.optimize()
-    logging.info(f" Best Parameters: {opt.best_parameters}")
-    # train the best model
-    best_model = opt.train_best_model()
-    # make predictions from the best model in the test set
-    opt.make_predictions_from_best_model()
-    # report the performance of the best model in the test set
-    opt.report_metrics()
+
+    datasets = ['adult.csv']
+    ml_algorithms = ['xgboost','randomforest']
+    anonymizations = ['Mondrian','SuperDuperAnonAlgo','t-closeness'] # Unused for now
+    k = [1,10,50,100] # Unused for now
+    # Dictionary to save the metrics
+    metrics = {}
+    
+    for dataset in datasets:
+        # Create a dictionary for each dataset
+        metrics[dataset]={}
+        # load dataset and preprocess it for each target they have
+        data = pd.read_csv(f'data/{dataset}')
+        preprocessed_datasets,targets = preprocess_data(data)
+
+        for preprocessed_dataset in zip(preprocessed_datasets,targets):
+            metrics[dataset][preprocessed_dataset[1]] = {}
+
+            for ml_algorithm in ml_algorithms:
+                # instanciate the Optimizer class class
+                opt = Optimizer(model_type=ml_algorithm,
+                                data=preprocessed_dataset[0],
+                                target= preprocessed_dataset[1],
+                                seed=42,
+                                max_evals=3,
+                                cv_splits=3
+                                )
+                # optimize the search space
+                best_params = opt.optimize()
+                logging.info(f" Best Parameters: {opt.best_parameters}")
+                # train the best model
+                best_model = opt.train_best_model()
+                # make predictions from the best model in the test set
+                opt.make_predictions_from_best_model()
+                # report the performance of the best model in the test set and save it in the dict
+                metrics[dataset][preprocessed_dataset[1]][ml_algorithm] = opt.report_metrics()
+    logging.info(f"Metrics: {metrics}")
 
 
 
