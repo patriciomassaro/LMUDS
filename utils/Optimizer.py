@@ -92,6 +92,7 @@ class Optimizer:
             self.search_space = XGBOOST_SEARCH_SPACE
             if self.problem_type == 'regression':
                 self.search_space['objective'] = 'reg:squarederror'
+                self.search_space['eval_metric'] = 'rmse'
                 self.metric = 'rmse'
             else:
                 self.search_space['objective'] = 'binary:logistic' 
@@ -140,6 +141,15 @@ class Optimizer:
         self.define_problem_type()
         # complete the search space
         self.complete_search_space()
+        # Log everyting
+        logger.info(f"Starting the optimization")
+        logger.info(f"model : {self.model}")
+        logger.info(f"problem type : {self.problem_type}")
+        logger.info(f"target : {self.target}")
+        logger.info(f"problem type : {self.problem_type}")
+        
+
+
         # optimize the search space
         self.best_parameters = fmin(self.function_to_optimize, self.search_space, algo=tpe.suggest,
                          max_evals=self.max_evals, trials=self.trials)
@@ -205,11 +215,22 @@ class Optimizer:
         """
         logger.info("Reporting the performance of the best model found during the optimization on the test set")
         # report the performance of the best model found during the optimization on the test set
+        metrics_dict = {}
         if self.problem_type == 'binary':
+            # REPORT
             logger.info(f"classification report: {classification_report(self.test_target, self.test_label_predictions)}")
+            # save it to the metrics dictionary
+            metrics_dict['classification_report'] = classification_report(self.test_target, self.test_label_predictions,output_dict=True)
+
+            # ROC
             logger.info(f"ROCAUC: {roc_auc_score(self.test_target, self.test_proba_predictions)}")
+            # save it to the metrics dictionary
+            metrics_dict['ROCAUC'] = roc_auc_score(self.test_target, self.test_proba_predictions)
         elif self.problem_type == 'regression':
             logger.info(f"RMSE: {np.sqrt(mean_squared_error(self.test_target, self.test_reg_predictions))}")
+            # save it to the metrics dictionary
+            metrics_dict['RMSE'] = np.sqrt(mean_squared_error(self.test_target, self.test_reg_predictions))
+        return metrics_dict
 
 
         
