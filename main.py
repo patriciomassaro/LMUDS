@@ -3,19 +3,35 @@ from utils.Preprocessing import preprocess_data
 
 import logging
 import pandas as pd
+import json
+import os
 
+
+# 
+def instanciate_log(logfilename:str = 'app.log'):
+    # Remove the log file if it exists
+    try:
+        os.remove(logfilename)
+    except OSError:
+        pass
+    # Instanciate a logging with debug level
+    logging.basicConfig(filename=logfilename, filemode='w', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',level=logging.DEBUG)
 
 if __name__ == '__main__':
     """
     This is the main function of the script 
     """
-    # Instanciate a logging with debug level
-    logging.basicConfig(filename='app.log', filemode='w', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',level=logging.DEBUG)
+    METRICS_JSON_PATH = 'metrics.json'
+    
+    # Instanciate the log
+    instanciate_log()
 
     datasets = ['adult.csv']
     ml_algorithms = ['xgboost','randomforest']
     anonymizations = ['Mondrian','SuperDuperAnonAlgo','t-closeness'] # Unused for now
     k = [1,10,50,100] # Unused for now
+
+
     # Dictionary to save the metrics
     metrics = {}
     
@@ -48,6 +64,8 @@ if __name__ == '__main__':
                 # report the performance of the best model in the test set and save it in the dict
                 metrics[dataset][preprocessed_dataset[1]][ml_algorithm] = opt.report_metrics()
     logging.info(f"Metrics: {metrics}")
+    with open(f'data/metrics/{METRICS_JSON_PATH}', 'w') as f:
+        json.dump(metrics, f)
 
 
 
