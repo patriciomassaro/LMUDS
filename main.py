@@ -1,8 +1,9 @@
-from utils.Optimizer import Optimizer
+from utils.anonymization.anonymize import Anonymizer
 from utils.Preprocessing import preprocess_data
+from utils.Optimizer import Optimizer
 
-import logging
 import pandas as pd
+import logging
 import json
 import os
 
@@ -26,11 +27,27 @@ if __name__ == '__main__':
     # Instanciate the log
     instanciate_log()
 
-    datasets = ['adult.csv']
-    ml_algorithms = ['xgboost','randomforest']
-    anonymizations = ['Mondrian','SuperDuperAnonAlgo','t-closeness'] # Unused for now
-    k = [1,10,50,100] # Unused for now
+    # This 2 lines must change, choose 2 or 3 DS and Method
+    datasets = ["adult", "cahousing", "'cmc", "mgm", "informs", "italia"]
+    methods = ["mondrian", "topdown", "cluster", "mondrian_ldiv", "classic_mondrian", "datafly"]
+    ks = [2, 10, 50, 100]
 
+    # Anonymization
+    for dataset in datasets:
+        for method in methods:
+            for k in ks:
+
+                file_name = dataset+"_anonymized_"+str(k)+".csv"
+
+                if os.path.exists("results/"+dataset+"/"+method+"/"+file_name):
+                    print(file_name + " already exists!")
+                else:
+                    print("Creating " + file_name)
+                    args = {'method': method, 'k': k, 'dataset': dataset}
+                    anonymizer = Anonymizer(args)
+                    anonymizer.anonymize()
+
+    ml_algorithms = ['xgboost','randomforest']
 
     # Dictionary to save the metrics
     metrics = {}
@@ -74,12 +91,12 @@ if __name__ == '__main__':
 # K [1,10,50,100]
 # Anonimization algorithm [k-anonymity, l-diversity, t-closeness]
 # Targets = [A10k, A100k, A1M]
-# For anonimization algorithm
+# For anonymization algorithm
     # for datasaet in datasets 
         # Preprocess dataset
         # Split
         # for k in K
-            # apply anonimization ( parameter k )
+            # apply anonymization ( parameter k )
             # Optimize with train dataset
             # Save metrics for training dataset
             # Save metrics for testing dataset
