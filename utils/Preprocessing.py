@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-ADULT_TARGETS = ['income','age']
+ADULT_TARGETS = ['salary-class','age']
 
 def determine_dataset(data):
     """
@@ -24,22 +24,22 @@ def preprocess_adult(data:pd.DataFrame):
     Preprocess the adult dataset, give one dataset per target
     """
     # Drop not important columns
-    columns_to_drop = ['fnlwgt','education','native-country','capital-gain','capital-loss']
-    logger.info (f'Dropping not important columns: {columns_to_drop}')
-    data.drop(columns_to_drop, axis=1, inplace=True)
+    # columns_to_drop = ['fnlwgt','education','native-country','capital-gain','capital-loss']
+    # logger.info (f'Dropping not important columns: {columns_to_drop}')
+    # data.drop(columns_to_drop, axis=1, inplace=True)
 
     preprocessed_datasets = []
 
     for target in ADULT_TARGETS:
         logger.info(f'Preprocessing data for target: {target}')
         preprocessed_data = data.copy()
-        if target == 'income':
+        if target == 'salary-class':
             # transform target to binary
-            logger.info (f'Transforming income target to binary')
-            preprocessed_data['income'] = preprocessed_data['income'].apply(lambda x: 0 if x == ' <=50K' else 1)
+            logger.info(f'Transforming income target to binary')
+            preprocessed_data['salary-class'] = preprocessed_data['salary-class'].apply(lambda x: 0 if x == ' <=50K' else 1)
 
         # apply one hot encoding
-        logger.info (f'Applying one hot encoding')
+        logger.info(f'Applying one hot encoding')
         preprocessed_data = pd.get_dummies(preprocessed_data,drop_first=True)
         logger.info(f'Columns after one hot encoding: {preprocessed_data.dtypes}')
         preprocessed_datasets.append(preprocessed_data)
@@ -55,10 +55,14 @@ def preprocess_data(data_raw:pd.DataFrame):
     dataset = determine_dataset(data_raw)
     logger.info(f'Dataset to be used: {dataset}')
     # Preprocess the data
-    if dataset == 'Adult':
-        preprocessed_datasets = preprocess_adult(data_raw)
-        targets = ADULT_TARGETS
+    # if dataset == 'Adult':
+    #     preprocessed_datasets = preprocess_adult(data_raw)
+    #     targets = ADULT_TARGETS
+    #
+    # else:
+    #     raise Exception('Dataset not supported')
 
-    else:
-        raise Exception('Dataset not supported')
+    preprocessed_datasets = preprocess_adult(data_raw)
+    targets = ADULT_TARGETS
+
     return preprocessed_datasets,targets

@@ -18,6 +18,7 @@ def instanciate_log(logfilename:str = 'app.log'):
     # Instanciate a logging with debug level
     logging.basicConfig(filename=logfilename, filemode='w', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',level=logging.DEBUG)
 
+
 if __name__ == '__main__':
     """
     This is the main function of the script 
@@ -56,7 +57,9 @@ if __name__ == '__main__':
         # Create a dictionary for each dataset
         metrics[dataset]={}
         # load dataset and preprocess it for each target they have
-        data = pd.read_csv(f'data/{dataset}')
+
+        # FOR TESTING PURPOSE, CHANGE
+        data = pd.read_csv(f'results/adult/mondrian/adult_anonymized_2.csv', sep=';', header=0, encoding='ascii')
         preprocessed_datasets,targets = preprocess_data(data)
 
         for preprocessed_dataset in zip(preprocessed_datasets,targets):
@@ -83,7 +86,6 @@ if __name__ == '__main__':
     logging.info(f"Metrics: {metrics}")
     with open(f'data/metrics/{METRICS_JSON_PATH}', 'w') as f:
         json.dump(metrics, f)
-
 
 
 # Main loop
