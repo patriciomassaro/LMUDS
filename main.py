@@ -29,11 +29,17 @@ if __name__ == '__main__':
     instanciate_log()
 
     # This 2 lines must change, choose 2 or 3 DS and Method
-    datasets = ["adult", "cahousing", "'cmc", "mgm", "informs", "italia"]
+    datasets = ["adult",
+         "cahousing", 
+                 #"cmc"
+        ]
     methods = ["mondrian", "topdown", "cluster", "mondrian_ldiv", "classic_mondrian", "datafly"]
-    ks = [2, 10, 50, 100]
+    ks = [2,5,10,50]
 
     # Anonymization
+    """
+    Path to the anonymized datasets:  Results/%DATASET%/%METHOD%/%DATASET%_anonymized_%K%.csv
+    """
     for dataset in datasets:
         for method in methods:
             for k in ks:
@@ -48,6 +54,19 @@ if __name__ == '__main__':
                     anonymizer = Anonymizer(args)
                     anonymizer.anonymize()
 
+
+
+
+    # Preprocessing loop
+    """
+    We take the anonymized datasets, apply preprocessing functions. Result : A folder with datasets ready to be used by the optimizer
+
+    Path to the anonymized preprocessed datasets:  Results/%DATASET%/%METHOD%/%DATASET%_anonymized_%K%_prep.csv
+    """
+
+
+    ### TODO: Read each anonymized preprocessed dataset, apply the optimizer and save the metrics in a json file.
+    
     ml_algorithms = ['xgboost','randomforest']
 
     # Dictionary to save the metrics
@@ -87,23 +106,3 @@ if __name__ == '__main__':
     with open(f'data/metrics/{METRICS_JSON_PATH}', 'w') as f:
         json.dump(metrics, f)
 
-
-# Main loop
-# Datasets [ A10k, A100k, A1M]
-# K [1,10,50,100]
-# Anonimization algorithm [k-anonymity, l-diversity, t-closeness]
-# Targets = [A10k, A100k, A1M]
-# For anonymization algorithm
-    # for datasaet in datasets 
-        # Preprocess dataset
-        # Split
-        # for k in K
-            # apply anonymization ( parameter k )
-            # Optimize with train dataset
-            # Save metrics for training dataset
-            # Save metrics for testing dataset
-            # Repeat 
-        #Repeat
-
-
-# plot
