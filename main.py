@@ -6,6 +6,7 @@ import pandas as pd
 import logging
 import json
 import os
+import glob
 
 
 # 
@@ -30,11 +31,17 @@ if __name__ == '__main__':
 
     # This 2 lines must change, choose 2 or 3 DS and Method
     datasets = ["adult",
-         "cahousing", 
-                 #"cmc"
-        ]
-    methods = ["mondrian", "topdown", "cluster", "mondrian_ldiv", "classic_mondrian", "datafly"]
-    ks = [2,5,10,50]
+                "cahousing", 
+                "cmc"
+            ]
+    methods = [#"mondrian",
+               #"topdown",
+               #"cluster",
+               #"mondrian_ldiv",
+               "classic_mondrian",
+               #"datafly"
+               ]
+    ks = [10,350,400]
 
     # Anonymization
     """
@@ -47,9 +54,9 @@ if __name__ == '__main__':
                 file_name = dataset+"_anonymized_"+str(k)+".csv"
 
                 if os.path.exists("results/"+dataset+"/"+method+"/"+file_name):
-                    print(file_name + " already exists!")
+                    logging.info(file_name + " already exists!")
                 else:
-                    print("Creating " + file_name)
+                    logging.info("Creating " + file_name)
                     args = {'method': method, 'k': k, 'dataset': dataset}
                     anonymizer = Anonymizer(args)
                     anonymizer.anonymize()
@@ -64,6 +71,23 @@ if __name__ == '__main__':
     Path to the anonymized preprocessed datasets:  Results/%DATASET%/%METHOD%/%DATASET%_anonymized_%K%_prep.csv
     """
 
+    # Get all the path of the anonymized datasets using blob
+    anonymized_datasets =  [fn for fn in glob.glob("results/**/**/*_anonymized_*.csv") if not 'prep' in fn]
+
+    for anonymized_dataset_path in anonymized_datasets:
+        preprocessed_dataset_path = anonymized_dataset_path.replace('.csv','_prep.csv')
+        logging.info(f"Preprocessing {anonymized_dataset_path}")
+        # read the dataset and preprocess it
+        if os.path.exists(preprocessed_dataset_path):
+                    logging.info( preprocessed_dataset_path + " already exists!")
+        else:
+            logging.info("Creating " + preprocessed_dataset_path)
+            data = pd.read_csv(anonymized_dataset_path, sep=';', header=0, encoding='ascii')
+            preprocessed_dataset = preprocess_data(data)
+            # Save the preprocessed datasets in the same folder
+            preprocessed_dataset.to_csv(preprocessed_dataset_path, index=False, sep=';')
+            logging.info(f"Saving to {preprocessed_dataset_path}")
+        
 
     ### TODO: Read each anonymized preprocessed dataset, apply the optimizer and save the metrics in a json file.
     
