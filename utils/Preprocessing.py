@@ -5,47 +5,130 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-ADULT_TARGETS = ['salary-class','age']
+ADULT_QI_INT_COLUMNS = ['age']
+CAHOUSING_QI_INT_COLUMNS =['latitude','longitude','median_income','housing_median_age']
+CMC_QI_INT_COLUMNS= ['Weducation','age','children']
+
+def get_median_from_binned_data(df:pd.DataFrame,int_columns:list):
+    """
+    Get the 2 values from the range of the binned data and assign it
+    """
+    for int_column in int_columns:
+        if int_column in df.columns:
+            logger.info(f'Getting median from binned data for column {int_column}')
+            df[int_column] = df[int_column].apply(lambda x: np.mean([int(i) for i in x.split('~')]))
+    return df
+
+def drop_columns_with_only_one_unique_value(data:pd.DataFrame):
+    """
+    Drop columns with only one unique value
+    """
+    for column in data.columns:
+        if len(data[column].unique()) == 1:
+            logger.info(f'Dropping column {column} as it has only one unique value')
+            data.drop(column, axis=1, inplace=True)
+    return data
+
+def drop_columns_if_exists(data:pd.DataFrame,columns_to_drop:list):
+    """
+    Drop columns if they don't exist in the dataset
+    """
+    for column in columns_to_drop:
+        if column in data.columns:
+            logger.info(f'Dropping column {column} as it does not exist in the dataset')
+            data.drop(column, axis=1, inplace=True)
+    return data
+
+def convert_to_object_if_exists(data:pd.DataFrame,columns:list):
+    """
+    Convert the columns to object ( to be one-hot encoded)  only if they exist
+    """
+    for column in columns:
+        if column in data.columns:
+            data[column] = data[column].astype('object')
+    return data
 
 def determine_dataset(data):
     """
-    Determine which dataset we are using based on the columns
+    Determine which dataset we are using based on the targets
     """
-    if 'riskOfAccidentClass' in data.columns:
-        return 'Insurance'
-    elif 'capital-gain' in data.columns:
-        return 'Adult'
-    elif 'NativeCountry' in data.columns:
-        return 'Irish'
+    if 'median_house_value' in data.columns:
+        return 'cahousing'
+    elif 'salary-class' in data.columns:
+        return 'adult'
+    elif 'method' in data.columns:
+        return 'cmc'
 
+
+def apply_one_hot_encoding(data:pd.DataFrame):
+    # Aply one_hot_encoding
+    logger.info(f'Applying one hot encoding')
+    preprocessed_data = pd.get_dummies(data,drop_first=True)
+    logger.info(f'Columns after one hot encoding: {preprocessed_data.dtypes}')
+    return preprocessed_data
 
 def preprocess_adult(data:pd.DataFrame):
     """
     Preprocess the adult dataset, give one dataset per target
     """
     # Drop not important columns
-    # columns_to_drop = ['fnlwgt','education','native-country','capital-gain','capital-loss']
-    # logger.info (f'Dropping not important columns: {columns_to_drop}')
-    # data.drop(columns_to_drop, axis=1, inplace=True)
+    columns_to_drop = ['ID']
+    drop_columns_if_exists(data,columns_to_drop)
 
-    preprocessed_datasets = []
 
-    for target in ADULT_TARGETS:
-        logger.info(f'Preprocessing data for target: {target}')
-        preprocessed_data = data.copy()
-        if target == 'salary-class':
-            # transform target to binary
-            logger.info(f'Transforming income target to binary')
-            preprocessed_data['salary-class'] = preprocessed_data['salary-class'].apply(lambda x: 0 if x == ' <=50K' else 1)
+    data=drop_columns_with_only_one_unique_value(data)
 
-        # apply one hot encoding
-        logger.info(f'Applying one hot encoding')
-        preprocessed_data = pd.get_dummies(preprocessed_data,drop_first=True)
-        logger.info(f'Columns after one hot encoding: {preprocessed_data.dtypes}')
-        preprocessed_datasets.append(preprocessed_data)
+    data = get_median_from_binned_data(df=data,
+                                       int_columns=ADULT_QI_INT_COLUMNS
+                                       )
 
-    return preprocessed_datasets
+    # Convert the target to 0-1
+    logger.info(f'Transforming income target to binary')
+    data['salary-class'] = data['salary-class'].apply(lambda x: 0 if x == ' <=50K' else 1)
 
+    # Apply one hot encoding
+    preprocessed_data = apply_one_hot_encoding(data)
+
+    return preprocessed_data
+
+def preprocess_cahousing(data:pd.DataFrame):
+    """
+    Preprocess the california housing dataset, suitable for regression
+    """
+    
+    data = drop_columns_with_only_one_unique_value(data)
+
+    data = get_median_from_binned_data(df=data,
+                                       int_columns=CAHOUSING_QI_INT_COLUMNS
+                                       )
+
+    # Drop not important columns
+    columns_to_drop = ['ID']
+    drop_columns_if_exists(data,columns_to_drop)
+
+    # apply one-hot-encoding
+    data_preprocessed = apply_one_hot_encoding(data)
+    return data_preprocessed
+
+def preprocess_cmc(data:pd.DataFrame):
+    """
+    Preprocess the CMC dataset, suitable for multiclass classification
+    """ 
+    # Drop columns with a unique value
+    data = drop_columns_with_only_one_unique_value(data)
+
+    data = get_median_from_binned_data(df=data,
+                                       int_columns=CMC_QI_INT_COLUMNS
+                                       )
+
+    # Drop not important columns
+    columns_to_drop = ['ID']
+    data=drop_columns_if_exists(data,columns_to_drop)
+
+    # Apply one hot encoding
+    preprocessed_data = apply_one_hot_encoding(data)
+
+    return preprocessed_data
 
 def preprocess_data(data_raw:pd.DataFrame):
     """
@@ -54,15 +137,14 @@ def preprocess_data(data_raw:pd.DataFrame):
     # Determine the dataset
     dataset = determine_dataset(data_raw)
     logger.info(f'Dataset to be used: {dataset}')
+    
     # Preprocess the data
-    # if dataset == 'Adult':
-    #     preprocessed_datasets = preprocess_adult(data_raw)
-    #     targets = ADULT_TARGETS
-    #
-    # else:
-    #     raise Exception('Dataset not supported')
-
-    preprocessed_datasets = preprocess_adult(data_raw)
-    targets = ADULT_TARGETS
-
-    return preprocessed_datasets,targets
+    if dataset == 'adult':
+        preprocessed_datasets = preprocess_adult(data_raw)
+    elif dataset == 'cahousing':
+        preprocessed_datasets = preprocess_cahousing(data_raw)
+    elif dataset == 'cmc':
+        preprocessed_datasets = preprocess_cmc(data_raw)  
+    else:
+        raise Exception('Dataset not supported')
+    return preprocessed_datasets
