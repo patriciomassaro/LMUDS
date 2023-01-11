@@ -18,11 +18,11 @@ def get_dataset_params(name):
         IS_CAT = [True, False, True, True, True]
         max_numeric = {"age": 50.5}
     elif name == Dataset.CAHOUSING:
-        QI_INDEX = [1, 2, 3, 8, 9]
-        target_var = 'ocean_proximity'
-        IS_CAT = [False, False, False, False, False]
+        QI_INDEX = [1, 2, 3, 8]
+        target_var = 'median_house_value'
+        IS_CAT = [False, False, False, False]
         max_numeric = {"latitude": 119.33, "longitude": 37.245, "housing_median_age": 32.5,
-                    "median_house_value": 257500, "median_income": 5.2035}
+                             "median_income": 5.2035}
     elif name == Dataset.INFORMS:
         QI_INDEX = [3, 4, 6, 13, 16]
         target_var = "poverty"
