@@ -1,3 +1,5 @@
+import numpy as np
+
 from utils.anonymization.anonymize import Anonymizer
 from utils.Preprocessing import preprocess_data
 from utils.Optimizer import Optimizer
@@ -9,7 +11,17 @@ import os
 import glob
 
 
-# 
+# create a function that returns the target given the dataset
+def get_target(dataset:str):
+    if dataset == 'adult':
+        return 'salary-class'
+    elif dataset == 'cahousing':
+        return 'median_house_value'
+    elif dataset == 'cmc':
+        return 'method'
+    else:
+        raise ValueError('Dataset not found')
+
 def instanciate_log(logfilename:str = 'app.log'):
     # Remove the log file if it exists
     try:
@@ -20,20 +32,32 @@ def instanciate_log(logfilename:str = 'app.log'):
     logging.basicConfig(filename=logfilename, filemode='w', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',level=logging.DEBUG)
 
 
+DATASET_SIZE_DICT = {
+    'adult': 32561,
+    'cahousing': 20640,
+    'cmc': 1473
+}
+
 if __name__ == '__main__':
     """
     This is the main function of the script 
     """
-    METRICS_JSON_PATH = 'metrics.json'
+    #create a string with the date and time
+    date_time = pd.to_datetime('today').strftime('%Y-%m-%d_%H-%M-%S')
+    METRICS_JSON_PATH = f"{date_time}_metrics.json"
+    # create a random number for the seed
+    seed = np.random.randint(0,1000)
     
     # Instanciate the log
     instanciate_log()
 
     # This 2 lines must change, choose 2 or 3 DS and Method
-    datasets = ["adult",
-                "cahousing", 
-                "cmc"
-            ]
+    datasets = [
+        # "cahousing",
+        # "adult",
+        "cmc"
+    ]
+
     methods = [#"mondrian",
                #"topdown",
                #"cluster",
@@ -41,7 +65,8 @@ if __name__ == '__main__':
                "classic_mondrian",
                #"datafly"
                ]
-    ks = [10,350,400]
+    # Create a list of numbers from 5 to 500 with 20 steps using numpy
+    ks= list(np.floor(np.linspace(5,500,20)))
 
     # Anonymization
     """
@@ -87,46 +112,64 @@ if __name__ == '__main__':
             # Save the preprocessed datasets in the same folder
             preprocessed_dataset.to_csv(preprocessed_dataset_path, index=False, sep=';')
             logging.info(f"Saving to {preprocessed_dataset_path}")
-        
 
-    ### TODO: Read each anonymized preprocessed dataset, apply the optimizer and save the metrics in a json file.
-    
     ml_algorithms = ['xgboost','randomforest']
 
     # Dictionary to save the metrics
-    metrics = {}
-    
-    for dataset in datasets:
-        # Create a dictionary for each dataset
-        metrics[dataset]={}
-        # load dataset and preprocess it for each target they have
+    metrics = {
+        'dataset':[],
+        'method':[],
+        'k':[],
+        'ml_algorithm':[],
+        'metrics':[],
+        'dataset_size':[]
+    }
 
-        # FOR TESTING PURPOSE, CHANGE
-        data = pd.read_csv(f'results/adult/mondrian/adult_anonymized_2.csv', sep=';', header=0, encoding='ascii')
-        preprocessed_datasets,targets = preprocess_data(data)
+    datasets_folders = [fn for fn in glob.glob("results/*")]
+    for dataset_path in datasets_folders:
+        dataset_name = dataset_path.split('/')[-1]
+        # get the target given the dataset
+        target = get_target(dataset_name)
+        methods_folders = [fn for fn in glob.glob(dataset_path+"/*")]
 
-        for preprocessed_dataset in zip(preprocessed_datasets,targets):
-            metrics[dataset][preprocessed_dataset[1]] = {}
+        for method_path in methods_folders:
+            method_name = method_path.split('/')[-1]
+            preprocessed_datasets =  [fn for fn in glob.glob(method_path+"/*_anonymized_*.csv") if 'prep' in fn]
 
-            for ml_algorithm in ml_algorithms:
-                # instanciate the Optimizer class class
-                opt = Optimizer(model_type=ml_algorithm,
-                                data=preprocessed_dataset[0],
-                                target= preprocessed_dataset[1],
-                                seed=42,
-                                max_evals=3,
-                                cv_splits=3
-                                )
-                # optimize the search space
-                best_params = opt.optimize()
+            for preprocessed_dataset in preprocessed_datasets:
+                k = preprocessed_dataset.split('_')[-2]
+                data = pd.read_csv(preprocessed_dataset, sep=';', header=0, encoding='ascii')
+
+                for ml_algorithm in ml_algorithms:
+                    logging.info(f"Optimizing {dataset_name} with {method_name} and {k} for {ml_algorithm}")
+                    opt = Optimizer(model_type=ml_algorithm,
+                                    data=data,
+                                    target=target,
+                                    cv_splits=5,
+                                    max_evals=25,
+                                    seed=seed)
+                    opt.optimize()
+                    logging.info(f" Best Parameters: {opt.best_parameters}")
+                    best_model = opt.train_best_model()
+                    # make predictions from the best model in the test set
+                    opt.make_predictions_from_best_model()
+                    # save info to the metrics dictionary
+                    metrics['dataset'].append(dataset_name)
+                    metrics['method'].append(method_name)
+                    metrics['k'].append(k)
+                    metrics['ml_algorithm'].append(ml_algorithm)
+                    metrics['metrics'].append(opt.report_metrics())
+                    metrics['dataset_size'].append(DATASET_SIZE_DICT[dataset_name])
+
+
+
                 logging.info(f" Best Parameters: {opt.best_parameters}")
                 # train the best model
-                best_model = opt.train_best_model()
-                # make predictions from the best model in the test set
-                opt.make_predictions_from_best_model()
-                # report the performance of the best model in the test set and save it in the dict
-                metrics[dataset][preprocessed_dataset[1]][ml_algorithm] = opt.report_metrics()
-    logging.info(f"Metrics: {metrics}")
+
     with open(f'data/metrics/{METRICS_JSON_PATH}', 'w') as f:
         json.dump(metrics, f)
+
+
+
+
 
