@@ -32,6 +32,12 @@ def instanciate_log(logfilename:str = 'app.log'):
     logging.basicConfig(filename=logfilename, filemode='w', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',level=logging.DEBUG)
 
 
+DATASET_SIZE_DICT = {
+    'adult': 32561,
+    'cahousing': 20640,
+    'cmc': 1473
+}
+
 if __name__ == '__main__':
     """
     This is the main function of the script 
@@ -47,9 +53,9 @@ if __name__ == '__main__':
 
     # This 2 lines must change, choose 2 or 3 DS and Method
     datasets = [
-        "cahousing",
-        "adult",
-        # "cmc"
+        # "cahousing",
+        # "adult",
+        "cmc"
     ]
 
     methods = [#"mondrian",
@@ -116,8 +122,7 @@ if __name__ == '__main__':
         'k':[],
         'ml_algorithm':[],
         'metrics':[],
-
-
+        'dataset_size':[]
     }
 
     datasets_folders = [fn for fn in glob.glob("results/*")]
@@ -154,6 +159,7 @@ if __name__ == '__main__':
                     metrics['k'].append(k)
                     metrics['ml_algorithm'].append(ml_algorithm)
                     metrics['metrics'].append(opt.report_metrics())
+                    metrics['dataset_size'].append(DATASET_SIZE_DICT[dataset_name])
 
 
 
