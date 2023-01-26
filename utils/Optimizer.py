@@ -65,12 +65,16 @@ class Optimizer:
         """
         This function is used to define the problem type based on the unique values of the target
         """
-        if len(self.train_target.unique()) > 2:
+        if len(self.train_target.unique()) > 5:
             logger.info("More than 2 unique values in the target, so it is a regression classification problem")
             self.problem_type = 'regression'
-        else:
+        elif len(self.train_target.unique()) == 2:
             logger.info("2 unique values in the target, so it is a binary classification problem")
             self.problem_type = 'binary'
+        else:
+            logger.info("More than 2 unique values in the target but less than 5, so it is a multiclass classification problem")
+            self.problem_type = 'multiclass'
+
 
     def split_into_train_and_test(self):
         logger.info("Splitting the data into train and test")
@@ -80,32 +84,45 @@ class Optimizer:
         self.test_features = (test.drop(self.target,axis=1))
         self.test_target = test[self.target]
 
-        
-
-    def complete_search_space(self):
+    def define_search_space(self):
         """
-        This function is used to complete the search space based on the model type and problem type
+        This function is used to define the search space based on the model type
+        """
+        if self.model == 'xgboost':
+            self.search_space = self.complete_search_space(XGBOOST_SEARCH_SPACE)
+        elif self.model == 'randomforest':
+            self.search_space = self.complete_search_space(RF_SEARCH_SPACE)
+
+    def complete_search_space(self,search_space:dict):
+        """
+        takes the search space and completes it based on the model type and problem type
         """
         # add the objective function to the search space based on the model type and problem type
         if self.model == 'xgboost':
             logger.info("Using XGBoost as the model")
-            self.search_space = XGBOOST_SEARCH_SPACE
             if self.problem_type == 'regression':
-                self.search_space['objective'] = 'reg:squarederror'
-                self.search_space['eval_metric'] = 'rmse'
+                search_space['objective'] = 'reg:squarederror'
+                search_space['eval_metric'] = 'rmse'
                 self.metric = 'rmse'
-            else:
-                self.search_space['objective'] = 'binary:logistic' 
-                self.search_space['eval_metric'] = 'logloss'
+            elif self.problem_type == 'binary':
+                search_space['objective'] = 'binary:logistic'
+                search_space['eval_metric'] = 'logloss'
                 self.metric='logloss'
-        else:
-            self.search_space = RF_SEARCH_SPACE
+            elif self.problem_type == 'multiclass':
+                search_space['objective'] = 'multi:softmax'
+                search_space['eval_metric'] = 'mlogloss'
+                search_space['num_class'] = len(self.train_target.unique())
+                self.metric='mlogloss'
+
+        return search_space
 
                 
 
     def function_to_optimize(self, params):
         """
-        This function is used to optimize the search space based on the model type and problem type
+        This function is used to optimize the search space based on the model type and problem type,
+        In xgb, the search space already considers the problem type
+        In RF, we have to add the objective function based on the problem type
         """
         if self.model == 'xgboost':
             # convert data and target to DMatrix
@@ -117,13 +134,18 @@ class Optimizer:
         elif self.model == 'randomforest':
             # perform a cross validation with the given parameters and return the  mean evaluation metric 
             if self.problem_type == 'regression':
-                cv_results = cross_val_score(RandomForestRegressor(**params), self.train_features, self.train_target, cv=self.splits,error_score='raise',scoring="neg_mean_squared_error")
+                cv_results = cross_val_score(RandomForestRegressor(**params), self.train_features, self.train_target, cv=self.splits,error_score='raise',scoring="neg_root_mean_squared_error")
                 # We want to minimize the negative mean squared error, so we multiply by -1
                 cv_results = -cv_results
                 logger.info(f"CV results: {cv_results}")
-            else:
+            elif self.problem_type == 'binary':
                 cv_results = cross_val_score(RandomForestClassifier(**params), self.train_features, self.train_target, cv=self.splits,error_score='raise',scoring="neg_log_loss")
                 # We want to minimize the neg log loss, so we multiply by -1
+                cv_results = -cv_results
+                logger.info(f"CV results: {cv_results}")
+            elif self.problem_type == 'multiclass':
+                cv_results = cross_val_score(RandomForestClassifier(**params), self.train_features, self.train_target, cv=self.splits,error_score='raise',scoring="f1_macro")
+                # We want to maximize the F1 but fmin only minimizes, so we multiply by -1
                 cv_results = -cv_results
                 logger.info(f"CV results: {cv_results}")
                 
@@ -139,15 +161,13 @@ class Optimizer:
         self.split_into_train_and_test()
         # determine the problem type
         self.define_problem_type()
-        # complete the search space
-        self.complete_search_space()
+        self.define_search_space()
         # Log everyting
         logger.info(f"Starting the optimization")
         logger.info(f"model : {self.model}")
         logger.info(f"problem type : {self.problem_type}")
         logger.info(f"target : {self.target}")
         logger.info(f"problem type : {self.problem_type}")
-        
 
 
         # optimize the search space
@@ -163,6 +183,7 @@ class Optimizer:
         This function is used to train the best model found during the optimization
         """
         logger.info("Training the best model found during the optimization")
+        self.best_parameters = self.complete_search_space(self.best_parameters)
         # train the model with the best parameters found during the optimization
         if self.model == 'xgboost':
             # convert parameters to integers
@@ -177,7 +198,7 @@ class Optimizer:
             self.best_parameters['min_samples_leaf'] = int(self.best_parameters['min_samples_leaf'])
             
             # Set regressor or classifier
-            if self.problem_type == 'binary':
+            if (self.problem_type == 'binary') or (self.problem_type == 'multiclass'):
                 self.best_model = RandomForestClassifier(**self.best_parameters)
             else:
                 self.best_model = RandomForestRegressor(**self.best_parameters)
@@ -207,6 +228,11 @@ class Optimizer:
                 self.test_reg_predictions = self.best_model.predict(xgb.DMatrix(self.test_features))
             elif self.model == 'randomforest':
                 self.test_reg_predictions = self.best_model.predict(self.test_features)
+        elif self.problem_type == 'multiclass':
+            if self.model == 'xgboost':
+                self.test_label_predictions = self.best_model.predict(xgb.DMatrix(self.test_features))
+            elif self.model == 'randomforest':
+                self.test_label_predictions = self.best_model.predict(self.test_features)
 
 
     def report_metrics(self):
@@ -230,6 +256,9 @@ class Optimizer:
             logger.info(f"RMSE: {np.sqrt(mean_squared_error(self.test_target, self.test_reg_predictions))}")
             # save it to the metrics dictionary
             metrics_dict['RMSE'] = np.sqrt(mean_squared_error(self.test_target, self.test_reg_predictions))
+        elif self.problem_type == 'multiclass':
+            metrics_dict['classification_report'] = classification_report(self.test_target, self.test_label_predictions,output_dict=True)
+
         return metrics_dict
 
 

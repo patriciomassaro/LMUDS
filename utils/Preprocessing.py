@@ -15,8 +15,9 @@ def get_median_from_binned_data(df:pd.DataFrame,int_columns:list):
     """
     for int_column in int_columns:
         if int_column in df.columns:
-            logger.info(f'Getting median from binned data for column {int_column}')
-            df[int_column] = df[int_column].apply(lambda x: np.mean([int(i) for i in x.split('~')]))
+            if df[int_column].dtype == 'object':
+                logger.info(f'Getting median from binned data for column {int_column}')
+                df[int_column] = df[int_column].apply(lambda x: np.mean([int(i) for i in x.split('~')]))
     return df
 
 def drop_columns_with_only_one_unique_value(data:pd.DataFrame):
@@ -84,7 +85,7 @@ def preprocess_adult(data:pd.DataFrame):
 
     # Convert the target to 0-1
     logger.info(f'Transforming income target to binary')
-    data['salary-class'] = data['salary-class'].apply(lambda x: 0 if x == ' <=50K' else 1)
+    data['salary-class'] = data['salary-class'].apply(lambda x: 0 if x == '<=50K' else 1)
 
     # Apply one hot encoding
     preprocessed_data = apply_one_hot_encoding(data)
@@ -124,6 +125,9 @@ def preprocess_cmc(data:pd.DataFrame):
     # Drop not important columns
     columns_to_drop = ['ID']
     data=drop_columns_if_exists(data,columns_to_drop)
+
+    # substract 1 to the target to allow xgb softmax
+    data['method'] = data['method'].apply(lambda x: x-1)
 
     # Apply one hot encoding
     preprocessed_data = apply_one_hot_encoding(data)
