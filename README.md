@@ -9,6 +9,7 @@ It consists mainly on the implementation pipeline explained in the article and a
 - Clone the repository
 - install requirements with
  `pip install -r requirements.txt`
+- We recoomend using an conda environment with python 3.8
 
 To run the pipeline, just run main.py. To see the results, go to the results_analysis notebook in the notebooks folder.
 
