@@ -37,18 +37,18 @@ class Optimizer:
 
     Parameters
     ----------
-    model_type: str ( 'xgboost' or 'randomforest') 
+    model_type: str ( 'xgboost' or 'randomforest')
         The model type to optimize
     data: pd.DataFrame
         The data to use for optimization, it should be already preprocessed
+    seed: int
+        The seed to use for reproducibility
     target: str
         The target column name
     max_evals: int
         The maximum number of evaluations to perform by hyperopt
     cv_splits: int
         The number of cross validation splits to perform
-    seed: int
-        The seed to use for reproducibility
     """
     def __init__(self, model_type:str,data:pd.DataFrame,seed:int, target:str, max_evals:int=10, cv_splits:int=5):
         self.model = model_type
@@ -59,14 +59,14 @@ class Optimizer:
         self.seed = seed
         self.target = target
         self.data = data
-        
+
 
     def define_problem_type(self):
         """
         This function is used to define the problem type based on the unique values of the target
         """
         if len(self.train_target.unique()) > 5:
-            logger.info("More than 2 unique values in the target, so it is a regression classification problem")
+            logger.info("More than 5 unique values in the target, so it is a regression classification problem")
             self.problem_type = 'regression'
         elif len(self.train_target.unique()) == 2:
             logger.info("2 unique values in the target, so it is a binary classification problem")
@@ -115,8 +115,6 @@ class Optimizer:
                 self.metric='mlogloss'
 
         return search_space
-
-                
 
     def function_to_optimize(self, params):
         """
@@ -258,6 +256,10 @@ class Optimizer:
             metrics_dict['RMSE'] = np.sqrt(mean_squared_error(self.test_target, self.test_reg_predictions))
         elif self.problem_type == 'multiclass':
             metrics_dict['classification_report'] = classification_report(self.test_target, self.test_label_predictions,output_dict=True)
+            # add the micro f1 score
+            metrics_dict['micro_f1'] = f1_score(self.test_target, self.test_label_predictions, average='micro')
+            # add the macro f1 score
+            metrics_dict['macro_f1'] = f1_score(self.test_target, self.test_label_predictions, average='macro')
 
         return metrics_dict
 

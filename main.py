@@ -51,22 +51,22 @@ if __name__ == '__main__':
     # Instanciate the log
     instanciate_log()
 
-    # This 2 lines must change, choose 2 or 3 DS and Method
+
     datasets = [
-        # "cahousing",
-        # "adult",
-        "cmc"
+        "cahousing",
+        "adult",
+        # "cmc"
     ]
 
-    methods = [#"mondrian",
-               #"topdown",
-               #"cluster",
-               #"mondrian_ldiv",
+    methods = ["mondrian",
+               "topdown",
+               # "cluster",
+               # "mondrian_ldiv",
                "classic_mondrian",
-               #"datafly"
+               "datafly"
                ]
-    # Create a list of numbers from 5 to 500 with 20 steps using numpy
-    ks= list(np.floor(np.linspace(5,500,20)))
+    # Create a list of numbers from 2 to 100 with 20 steps using numpy
+    ks= list(np.floor(np.linspace(2,100,20)))
 
     # Anonymization
     """
@@ -145,8 +145,8 @@ if __name__ == '__main__':
                     opt = Optimizer(model_type=ml_algorithm,
                                     data=data,
                                     target=target,
-                                    cv_splits=5,
-                                    max_evals=25,
+                                    cv_splits=4,
+                                    max_evals=20,
                                     seed=seed)
                     opt.optimize()
                     logging.info(f" Best Parameters: {opt.best_parameters}")

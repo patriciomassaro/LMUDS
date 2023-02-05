@@ -14,7 +14,7 @@ def k_anonymize(anon_params):
             anon_params["qi_index"], 
             anon_params['mapping_dict'],
             anon_params['is_cat'],
-            relax=False)
+            relax=True)
 
     if anon_params["name"] == AnonMethod.BASIC_MONDRIAN:
         return basic_mondrian_anonymize(
