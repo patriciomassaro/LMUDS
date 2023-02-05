@@ -215,7 +215,7 @@ def balance(sub_partitions, index):
 
     sorted_dist = sorted(dist.items(),
                          key=operator.itemgetter(1))
-    nearest_index = [t[0] for t in sorted_dist[:require]]
+    nearest_index = [t[0] for t in sorted_dist[:int(require)]]
     addition_set = [t for i, t in enumerate(more.member) if i in set(nearest_index)]
     remain_set = [t for i, t in enumerate(more.member) if i not in set(nearest_index)]
     first_ncp, first_mid = NCP_dis_merge(less, addition_set)
