@@ -59,9 +59,6 @@ if __name__ == '__main__':
     ]
 
     methods = ["mondrian",
-               "topdown",
-               # "cluster",
-               # "mondrian_ldiv",
                "classic_mondrian",
                "datafly"
                ]
@@ -72,19 +69,19 @@ if __name__ == '__main__':
     """
     Path to the anonymized datasets:  Results/%DATASET%/%METHOD%/%DATASET%_anonymized_%K%.csv
     """
-    for dataset in datasets:
-        for method in methods:
-            for k in ks:
-
-                file_name = dataset+"_anonymized_"+str(k)+".csv"
-
-                if os.path.exists("results/"+dataset+"/"+method+"/"+file_name):
-                    logging.info(file_name + " already exists!")
-                else:
-                    logging.info("Creating " + file_name)
-                    args = {'method': method, 'k': k, 'dataset': dataset}
-                    anonymizer = Anonymizer(args)
-                    anonymizer.anonymize()
+    # for dataset in datasets:
+    #     for method in methods:
+    #         for k in ks:
+    #
+    #             file_name = dataset+"_anonymized_"+str(k)+".csv"
+    #
+    #             if os.path.exists("results/"+dataset+"/"+method+"/"+file_name):
+    #                 logging.info(file_name + " already exists!")
+    #             else:
+    #                 logging.info("Creating " + file_name)
+    #                 args = {'method': method, 'k': k, 'dataset': dataset}
+    #                 anonymizer = Anonymizer(args)
+    #                 anonymizer.anonymize()
 
 
 
@@ -166,7 +163,7 @@ if __name__ == '__main__':
                 logging.info(f" Best Parameters: {opt.best_parameters}")
                 # train the best model
 
-    with open(f'data/metrics/{METRICS_JSON_PATH}', 'w') as f:
+    with open(f'metrics/{METRICS_JSON_PATH}', 'w') as f:
         json.dump(metrics, f)
 
 

@@ -35,7 +35,7 @@ def get_median_from_binned_data(df: pd.DataFrame, int_columns: list, df_name: st
             # If it is still an object, it has a range. We impute the median of the range
             if df[int_column].dtype == 'object':
                 # Convert single number to invertals using ~
-                df[int_column] = df[int_column].apply(lambda x: f'{x}~{x}' if type(x) == float else x)
+                df[int_column] = df[int_column].apply(lambda x: f'{x}~{x}' if type(x) == float or type(x) == np.float64 else x)
                 # if the value has a + the inverval is up to the max
                 logger.info(f'Getting median from binned data for column {int_column}')
                 df[int_column] = df[int_column].apply(lambda x: np.mean([float(i) for i in x.split('~')]))
