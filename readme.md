@@ -12,6 +12,8 @@ It consists mainly on the implementation pipeline explained in the article and a
 
 To run the pipeline, just run main.py. To see the results, go to the results_analysis notebook in the notebooks folder.
 
+In case any error happens, after running main.py you will see a log : app.log that may help you to understand the error.
+
 ## Elements
 
 - utils: Contains the modules used in the pipeline
